@@ -7,17 +7,21 @@ namespace DragConvert;
 /// <summary>
 /// Hook mouse global. Memicu event saat: tombol kiri ditahan + Shift ditahan + mouse bergeser,
 /// dan klik awalnya terjadi di Explorer (jendela folder atau desktop).
+/// Selama menu aktif, klik kanan dan scroll mouse dipakai untuk ganti mode (tidak diteruskan ke Windows).
 /// </summary>
 internal sealed class InputHook : IDisposable
 {
     private const int WH_MOUSE_LL = 14;
     private const int WH_KEYBOARD_LL = 13;
-    private const int WM_KEYDOWN = 0x0100;
-    private const int VK_ESCAPE = 0x1B;
     private const int WM_MOUSEMOVE = 0x0200;
     private const int WM_LBUTTONDOWN = 0x0201;
     private const int WM_LBUTTONUP = 0x0202;
+    private const int WM_RBUTTONDOWN = 0x0204;
+    private const int WM_RBUTTONUP = 0x0205;
+    private const int WM_MOUSEWHEEL = 0x020A;
+    private const int WM_KEYDOWN = 0x0100;
     private const int VK_SHIFT = 0x10;
+    private const int VK_ESCAPE = 0x1B;
     private const uint GA_ROOT = 2;
 
     private delegate IntPtr LowLevelProc(int nCode, IntPtr wParam, IntPtr lParam);
@@ -26,12 +30,14 @@ internal sealed class InputHook : IDisposable
     private readonly LowLevelProc _kbProc;
     private IntPtr _hook;
     private IntPtr _kbHook;
-    private bool _pressed, _triggered;
+    private bool _pressed, _triggered, _swallowRightUp;
+    private long _lastWheelTick;
     private POINT _start;
 
     public event Action<int, int>? DragTriggered;
     public event Action? Released;
     public event Action? EscPressed;
+    public event Action? ModeSwitchRequested;
 
     public InputHook()
     {
@@ -86,6 +92,36 @@ internal sealed class InputHook : IDisposable
                     if (_triggered) Released?.Invoke();
                     _pressed = false;
                     _triggered = false;
+                    break;
+
+                case WM_RBUTTONDOWN:
+                    if (_triggered)
+                    {
+                        _swallowRightUp = true;
+                        ModeSwitchRequested?.Invoke();
+                        return (IntPtr)1; // jangan teruskan ke Windows (supaya drag tidak batal)
+                    }
+                    break;
+
+                case WM_RBUTTONUP:
+                    if (_swallowRightUp)
+                    {
+                        _swallowRightUp = false;
+                        return (IntPtr)1;
+                    }
+                    break;
+
+                case WM_MOUSEWHEEL:
+                    if (_triggered)
+                    {
+                        long now = Environment.TickCount64;
+                        if (now - _lastWheelTick > 250)
+                        {
+                            _lastWheelTick = now;
+                            ModeSwitchRequested?.Invoke();
+                        }
+                        return (IntPtr)1; // cegah Explorer ikut scroll
+                    }
                     break;
             }
         }

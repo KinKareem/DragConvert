@@ -14,8 +14,16 @@ namespace DragConvert;
 
 public partial class OverlayWindow : Window
 {
-    // Urutan searah jarum jam, mulai dari atas. Tambah/kurangi format di sini.
-    private static readonly string[] Formats = { "PNG", "JPG", "JPEG", "WEBP" };
+    private sealed record Mode(string Label, string[] Formats);
+
+    // Urutan format searah jarum jam, mulai dari atas.
+    private static readonly Mode[] Modes =
+    {
+        new("GAMBAR", new[] { "PNG", "JPG", "JPEG", "WEBP" }),
+        new("DOKUMEN", new[] { "DOCX", "PDF", "TXT", "RTF" }),
+    };
+
+    private int _modeIndex; // mode terakhir diingat selama aplikasi berjalan
 
     private const double Cx = 110, Cy = 110, InnerR = 34, OuterR = 92, GapDeg = 3;
     private static readonly FontFamily UiFont = new FontFamily("Segoe UI Variable Display, Segoe UI");
@@ -57,6 +65,10 @@ public partial class OverlayWindow : Window
 
     private void BuildMenu()
     {
+        MenuCanvas.Children.Clear();
+        var mode = Modes[_modeIndex];
+        var formats = mode.Formats;
+
         var bg = new Ellipse
         {
             Width = 196,
@@ -74,8 +86,8 @@ public partial class OverlayWindow : Window
         Canvas.SetTop(bg, 12);
         MenuCanvas.Children.Add(bg);
 
-        double sweep = 360.0 / Formats.Length;
-        for (int i = 0; i < Formats.Length; i++)
+        double sweep = 360.0 / formats.Length;
+        for (int i = 0; i < formats.Length; i++)
         {
             double start = -90 - sweep / 2 + i * sweep;
             double a0 = start + GapDeg / 2, a1 = start + sweep - GapDeg / 2;
@@ -85,7 +97,7 @@ public partial class OverlayWindow : Window
             fig.Segments.Add(new LineSegment(P(InnerR, a1), true));
             fig.Segments.Add(new ArcSegment(P(InnerR, a0), new Size(InnerR, InnerR), 0, false, SweepDirection.Counterclockwise, true));
 
-            string format = Formats[i];
+            string format = formats[i];
             var path = new Path
             {
                 Data = new PathGeometry(new[] { fig }),
@@ -126,6 +138,7 @@ public partial class OverlayWindow : Window
             MenuCanvas.Children.Add(label);
         }
 
+        // Lingkaran tengah: nama mode + indikator titik
         var center = new Ellipse
         {
             Width = (InnerR - 6) * 2,
@@ -143,19 +156,47 @@ public partial class OverlayWindow : Window
 
         var hint = new TextBlock
         {
-            Text = "DROP",
-            Width = 50,
+            Text = mode.Label,
+            Width = 52,
             TextAlignment = TextAlignment.Center,
             FontFamily = UiFont,
             Foreground = Brushes.White,
-            FontSize = 9,
+            FontSize = 8.5,
             FontWeight = FontWeights.SemiBold,
             IsHitTestVisible = false,
             Effect = new DropShadowEffect { BlurRadius = 4, ShadowDepth = 1, Opacity = 0.6, Color = Colors.Black }
         };
-        Canvas.SetLeft(hint, Cx - 25);
-        Canvas.SetTop(hint, Cy - 6);
+        Canvas.SetLeft(hint, Cx - 26);
+        Canvas.SetTop(hint, Cy - 10);
         MenuCanvas.Children.Add(hint);
+
+        for (int i = 0; i < Modes.Length; i++)
+        {
+            var dot = new Ellipse
+            {
+                Width = 4,
+                Height = 4,
+                IsHitTestVisible = false,
+                Fill = new SolidColorBrush(Color.FromArgb(i == _modeIndex ? (byte)0xFF : (byte)0x55, 255, 255, 255))
+            };
+            Canvas.SetLeft(dot, Cx - (Modes.Length * 6 - 2) / 2.0 + i * 6);
+            Canvas.SetTop(dot, Cy + 7);
+            MenuCanvas.Children.Add(dot);
+        }
+    }
+
+    /// <summary>Ganti mode GAMBAR &lt;-&gt; DOKUMEN.</summary>
+    public void ToggleMode()
+    {
+        _modeIndex = (_modeIndex + 1) % Modes.Length;
+        BuildMenu();
+
+        var pop = new DoubleAnimation(0.92, 1, TimeSpan.FromMilliseconds(140))
+        {
+            EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.35 }
+        };
+        MenuScale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
+        MenuScale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
     }
 
     private static void SetEffect(DragEventArgs e)

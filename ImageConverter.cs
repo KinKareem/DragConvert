@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
 using ImageMagick;
 
 namespace DragConvert;
@@ -12,9 +13,7 @@ internal static class ImageConverter
         ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tif", ".tiff"
     };
 
-    public sealed record Result(int Converted, int Skipped, int Failed, string? LastError);
-
-    public static Result ConvertMany(IEnumerable<string> files, string target)
+    public static ConvertResult ConvertMany(IEnumerable<string> files, string target)
     {
         string ext = target.ToLowerInvariant();
         int ok = 0, skipped = 0, failed = 0;
@@ -41,7 +40,7 @@ internal static class ImageConverter
                 lastError = ex.Message;
             }
         }
-        return new Result(ok, skipped, failed, lastError);
+        return new ConvertResult(ok, skipped, failed, lastError);
     }
 
     private static void ConvertOne(string src, string ext)
@@ -72,10 +71,29 @@ internal static class ImageConverter
                 throw new NotSupportedException($"Format {ext} belum didukung.");
         }
 
-        image.Write(UniquePath(src, ext), format);
+        string outPath = UniquePath(src, ext);
+        image.Write(outPath, format);
+        NotifyShell(outPath);
     }
 
-    private static string UniquePath(string src, string ext)
+    // Beri tahu Explorer/Desktop ada file baru supaya langsung tampil tanpa refresh
+    internal static void NotifyShell(string filePath)
+    {
+        const int SHCNE_CREATE = 0x00000002;
+        const int SHCNE_UPDATEDIR = 0x00001000;
+        const uint SHCNF_PATHW = 0x0005;
+        const uint SHCNF_FLUSHNOWAIT = 0x2000;
+
+        SHChangeNotify(SHCNE_CREATE, SHCNF_PATHW | SHCNF_FLUSHNOWAIT, filePath, IntPtr.Zero);
+        string? dir = Path.GetDirectoryName(filePath);
+        if (dir != null)
+            SHChangeNotify(SHCNE_UPDATEDIR, SHCNF_PATHW | SHCNF_FLUSHNOWAIT, dir, IntPtr.Zero);
+    }
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    private static extern void SHChangeNotify(int wEventId, uint uFlags, string dwItem1, IntPtr dwItem2);
+
+    internal static string UniquePath(string src, string ext)
     {
         string dir = Path.GetDirectoryName(src)!;
         string name = Path.GetFileNameWithoutExtension(src);

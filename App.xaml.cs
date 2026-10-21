@@ -37,6 +37,10 @@ public partial class App : Application
                 _overlay.HideMenu();
             }));
 
+        // Klik kanan / scroll mouse saat menu muncul: ganti mode GAMBAR <-> DOKUMEN
+        _hook.ModeSwitchRequested += () =>
+            Dispatcher.BeginInvoke(new Action(() => _overlay?.ToggleMode()));
+
 #if DEBUG
         // Mode dev: tekan Esc untuk menutup aplikasi (tidak aktif di build Release)
         _hook.EscPressed += () => Dispatcher.BeginInvoke(new Action(ExitApp));
@@ -47,7 +51,10 @@ public partial class App : Application
 
     private async void OnFilesDropped(string[] files, string format)
     {
-        var result = await Task.Run(() => ImageConverter.ConvertMany(files, format));
+        bool isDoc = Array.IndexOf(DocumentConverter.TargetFormats, format) >= 0;
+        var result = await Task.Run(() => isDoc
+            ? DocumentConverter.ConvertMany(files, format)
+            : ImageConverter.ConvertMany(files, format));
 
         string msg = result.Converted > 0
             ? $"{result.Converted} file dikonversi ke {format}"
