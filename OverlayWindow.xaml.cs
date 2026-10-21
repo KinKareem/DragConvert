@@ -21,6 +21,7 @@ public partial class OverlayWindow : Window
     {
         new("GAMBAR", new[] { "PNG", "JPG", "JPEG", "WEBP", "PDF" }),
         new("DOKUMEN", new[] { "DOCX", "PDF", "TXT", "RTF" }),
+        new("AUDIO", new[] { "MP3", "WAV", "M4A", "FLAC", "OGG" }),
     };
 
     private int _modeIndex; // mode terakhir diingat selama aplikasi berjalan
@@ -185,7 +186,7 @@ public partial class OverlayWindow : Window
         }
     }
 
-    /// <summary>Ganti mode GAMBAR &lt;-&gt; DOKUMEN.</summary>
+    /// <summary>Pindah ke mode berikutnya (GAMBAR, DOKUMEN, AUDIO).</summary>
     public void ToggleMode()
     {
         _modeIndex = (_modeIndex + 1) % Modes.Length;

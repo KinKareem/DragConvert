@@ -52,6 +52,9 @@ public partial class App : Application
 
     private async void OnFilesDropped(string[] files, string format)
     {
+        if (Array.IndexOf(AudioConverter.TargetFormats, format) >= 0)
+            _tray?.ShowBalloonTip(2000, AppName, $"Mengonversi {files.Length} file ke {format}...", Forms.ToolTipIcon.Info);
+
         var result = await Task.Run(() => RunConversion(files, format));
 
         string msg = result.Converted > 0
@@ -66,6 +69,9 @@ public partial class App : Application
 
     private static ConvertResult RunConversion(string[] files, string format)
     {
+        if (Array.IndexOf(AudioConverter.TargetFormats, format) >= 0)
+            return AudioConverter.ConvertMany(files, format);
+
         if (Array.IndexOf(DocumentConverter.TargetFormats, format) < 0)
             return ImageConverter.ConvertMany(files, format);
 
