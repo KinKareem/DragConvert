@@ -19,7 +19,7 @@ public partial class OverlayWindow : Window
     // Urutan format searah jarum jam, mulai dari atas.
     private static readonly Mode[] Modes =
     {
-        new("GAMBAR", new[] { "PNG", "JPG", "JPEG", "WEBP" }),
+        new("GAMBAR", new[] { "PNG", "JPG", "JPEG", "WEBP", "PDF" }),
         new("DOKUMEN", new[] { "DOCX", "PDF", "TXT", "RTF" }),
     };
 

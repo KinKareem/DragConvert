@@ -16,6 +16,7 @@ internal static class ImageConverter
     public static ConvertResult ConvertMany(IEnumerable<string> files, string target)
     {
         string ext = target.ToLowerInvariant();
+        if (ext == "pdf") return ConvertToPdf(new List<string>(files));
         int ok = 0, skipped = 0, failed = 0;
         string? lastError = null;
 
@@ -41,6 +42,55 @@ internal static class ImageConverter
             }
         }
         return new ConvertResult(ok, skipped, failed, lastError);
+    }
+
+    internal static bool IsImage(string path) => Supported.Contains(Path.GetExtension(path));
+
+    // Gambar -> PDF: satu halaman A4 per gambar; beberapa gambar digabung jadi satu PDF
+    private static ConvertResult ConvertToPdf(List<string> files)
+    {
+        var pages = new List<(byte[] Data, bool Landscape)>();
+        string? first = null;
+        int skipped = 0, failed = 0;
+        string? lastError = null;
+
+        foreach (var file in files)
+        {
+            if (!File.Exists(file) || !IsImage(file)) { skipped++; continue; }
+            try
+            {
+                using var image = new MagickImage(file);
+                image.AutoOrient();
+                if (image.HasAlpha)
+                {
+                    image.BackgroundColor = MagickColors.White;
+                    image.Alpha(AlphaOption.Remove);
+                }
+                image.Format = MagickFormat.Jpeg;
+                image.Quality = 92;
+                pages.Add((image.ToByteArray(), image.Width > image.Height));
+                first ??= file;
+            }
+            catch (Exception ex)
+            {
+                failed++;
+                lastError = ex.Message;
+            }
+        }
+
+        if (pages.Count == 0) return new ConvertResult(0, skipped, failed, lastError);
+
+        try
+        {
+            string outPath = UniquePath(first!, "pdf");
+            DocIO.WriteImagesPdf(outPath, pages);
+            NotifyShell(outPath);
+            return new ConvertResult(pages.Count, skipped, failed, lastError);
+        }
+        catch (Exception ex)
+        {
+            return new ConvertResult(0, skipped, failed + pages.Count, ex.Message);
+        }
     }
 
     private static void ConvertOne(string src, string ext)

@@ -116,6 +116,24 @@ internal static class DocIO
         }).GeneratePdf(path);
     }
 
+    public static void WriteImagesPdf(string path, List<(byte[] Data, bool Landscape)> pages)
+    {
+        QuestPDF.Settings.License = LicenseType.Community;
+
+        QuestPDF.Fluent.Document.Create(container =>
+        {
+            foreach (var (data, landscape) in pages)
+            {
+                container.Page(page =>
+                {
+                    page.Size(landscape ? PageSizes.A4.Landscape() : PageSizes.A4);
+                    page.Margin(1, Unit.Centimetre);
+                    page.Content().Image(data).FitArea();
+                });
+            }
+        }).GeneratePdf(path);
+    }
+
     public static void WriteRtf(string path, List<string> lines)
     {
         var sb = new StringBuilder();

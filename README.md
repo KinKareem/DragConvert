@@ -1,7 +1,8 @@
 # DragConvert
 
 Konversi gambar di Windows dengan **tahan Shift + drag file** dari Explorer.
-Menu lingkaran muncul di dekat kursor; lepas file di segmen format tujuan (PNG, JPG, JPEG, WEBP).
+Menu lingkaran muncul di dekat kursor; lepas file di segmen format tujuan (PNG, JPG, JPEG, WEBP, PDF).
+Gambar yang dilepas di segmen **PDF** menjadi file PDF (1 gambar = 1 halaman, ukuran A4 mengikuti orientasi gambar).
 Hasil disimpan di folder yang sama dengan file asli.
 
 ## Prasyarat

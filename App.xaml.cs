@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -51,10 +52,7 @@ public partial class App : Application
 
     private async void OnFilesDropped(string[] files, string format)
     {
-        bool isDoc = Array.IndexOf(DocumentConverter.TargetFormats, format) >= 0;
-        var result = await Task.Run(() => isDoc
-            ? DocumentConverter.ConvertMany(files, format)
-            : ImageConverter.ConvertMany(files, format));
+        var result = await Task.Run(() => RunConversion(files, format));
 
         string msg = result.Converted > 0
             ? $"{result.Converted} file dikonversi ke {format}"
@@ -64,6 +62,23 @@ public partial class App : Application
 
         _tray?.ShowBalloonTip(3000, AppName, msg,
             result.Failed > 0 ? Forms.ToolTipIcon.Warning : Forms.ToolTipIcon.Info);
+    }
+
+    private static ConvertResult RunConversion(string[] files, string format)
+    {
+        if (Array.IndexOf(DocumentConverter.TargetFormats, format) < 0)
+            return ImageConverter.ConvertMany(files, format);
+
+        if (format != "PDF")
+            return DocumentConverter.ConvertMany(files, format);
+
+        // Target PDF menerima gambar (digabung jadi satu PDF) maupun dokumen
+        var images = files.Where(ImageConverter.IsImage).ToArray();
+        var docs = files.Where(f => !ImageConverter.IsImage(f)).ToArray();
+        var a = images.Length > 0 ? ImageConverter.ConvertMany(images, format) : new ConvertResult(0, 0, 0, null);
+        var b = docs.Length > 0 ? DocumentConverter.ConvertMany(docs, format) : new ConvertResult(0, 0, 0, null);
+        return new ConvertResult(a.Converted + b.Converted, a.Skipped + b.Skipped,
+                                 a.Failed + b.Failed, b.LastError ?? a.LastError);
     }
 
     private void CreateTray()
