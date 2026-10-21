@@ -17,10 +17,20 @@ public partial class OverlayWindow : Window
     // Urutan searah jarum jam, mulai dari atas. Tambah/kurangi format di sini.
     private static readonly string[] Formats = { "PNG", "JPG", "JPEG", "WEBP" };
 
-    private const double Cx = 150, Cy = 150, InnerR = 48, OuterR = 130, GapDeg = 3;
+    private const double Cx = 110, Cy = 110, InnerR = 34, OuterR = 92, GapDeg = 3;
+    private static readonly FontFamily UiFont = new FontFamily("Segoe UI Variable Display, Segoe UI");
 
-    private static readonly Brush NormalBrush = Freeze(new SolidColorBrush(Color.FromArgb(0xE6, 0xFF, 0x8A, 0x3D)));
-    private static readonly Brush HoverBrush = Freeze(new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0xB3, 0x47)));
+    // Gaya "glass": gradasi putih transparan + garis tepi bercahaya
+    private static Brush Glass(byte top, byte bottom) => Freeze(new LinearGradientBrush(
+        Color.FromArgb(top, 255, 255, 255), Color.FromArgb(bottom, 255, 255, 255),
+        new Point(0, 0), new Point(1, 1)));
+
+    private static readonly Brush NormalBrush = Glass(0x48, 0x14);
+    private static readonly Brush HoverBrush = Glass(0x96, 0x4A);
+    private static readonly Brush EdgeBrush = Freeze(new LinearGradientBrush(
+        Color.FromArgb(0xC0, 255, 255, 255), Color.FromArgb(0x24, 255, 255, 255),
+        new Point(0, 0), new Point(1, 1)));
+    private static readonly Brush HoverEdgeBrush = Freeze(new SolidColorBrush(Color.FromArgb(0xF0, 255, 255, 255)));
 
     public event Action<string[], string>? FilesDropped;
 
@@ -37,7 +47,7 @@ public partial class OverlayWindow : Window
         };
     }
 
-    private static Brush Freeze(SolidColorBrush b) { b.Freeze(); return b; }
+    private static Brush Freeze(Brush b) { b.Freeze(); return b; }
 
     private static Point P(double r, double deg)
     {
@@ -49,9 +59,16 @@ public partial class OverlayWindow : Window
     {
         var bg = new Ellipse
         {
-            Width = 276, Height = 276,
-            Fill = new SolidColorBrush(Color.FromArgb(0xB3, 0x20, 0x20, 0x20)),
-            Effect = new DropShadowEffect { BlurRadius = 14, ShadowDepth = 0, Opacity = 0.5 }
+            Width = 196,
+            Height = 196,
+            Fill = new LinearGradientBrush(
+                Color.FromArgb(0x70, 0x1C, 0x22, 0x30), Color.FromArgb(0x38, 0x10, 0x14, 0x1E),
+                new Point(0, 0), new Point(1, 1)),
+            Stroke = new LinearGradientBrush(
+                Color.FromArgb(0x70, 255, 255, 255), Color.FromArgb(0x10, 255, 255, 255),
+                new Point(0, 0), new Point(1, 1)),
+            StrokeThickness = 1.2,
+            Effect = new DropShadowEffect { BlurRadius = 20, ShadowDepth = 2, Opacity = 0.35 }
         };
         Canvas.SetLeft(bg, 12);
         Canvas.SetTop(bg, 12);
@@ -73,14 +90,18 @@ public partial class OverlayWindow : Window
             {
                 Data = new PathGeometry(new[] { fig }),
                 Fill = NormalBrush,
+                Stroke = EdgeBrush,
+                StrokeThickness = 1.2,
+                StrokeLineJoin = PenLineJoin.Round,
                 AllowDrop = true
             };
-            path.DragEnter += (_, e) => { path.Fill = HoverBrush; SetEffect(e); };
+            path.DragEnter += (_, e) => { path.Fill = HoverBrush; path.Stroke = HoverEdgeBrush; SetEffect(e); };
             path.DragOver += (_, e) => SetEffect(e);
-            path.DragLeave += (_, _) => path.Fill = NormalBrush;
+            path.DragLeave += (_, _) => { path.Fill = NormalBrush; path.Stroke = EdgeBrush; };
             path.Drop += (_, e) =>
             {
                 path.Fill = NormalBrush;
+                path.Stroke = EdgeBrush;
                 if (e.Data.GetData(DataFormats.FileDrop) is string[] files)
                     FilesDropped?.Invoke(files, format);
                 e.Handled = true;
@@ -90,19 +111,30 @@ public partial class OverlayWindow : Window
             var mid = P((InnerR + OuterR) / 2, start + sweep / 2);
             var label = new TextBlock
             {
-                Text = format, Width = 80, TextAlignment = TextAlignment.Center,
-                Foreground = Brushes.White, FontSize = 15, FontWeight = FontWeights.Bold,
-                IsHitTestVisible = false
+                Text = format,
+                Width = 64,
+                TextAlignment = TextAlignment.Center,
+                FontFamily = UiFont,
+                Foreground = Brushes.White,
+                FontSize = 12.5,
+                FontWeight = FontWeights.SemiBold,
+                IsHitTestVisible = false,
+                Effect = new DropShadowEffect { BlurRadius = 6, ShadowDepth = 1, Opacity = 0.7, Color = Colors.Black }
             };
-            Canvas.SetLeft(label, mid.X - 40);
-            Canvas.SetTop(label, mid.Y - 11);
+            Canvas.SetLeft(label, mid.X - 32);
+            Canvas.SetTop(label, mid.Y - 9);
             MenuCanvas.Children.Add(label);
         }
 
         var center = new Ellipse
         {
-            Width = (InnerR - 6) * 2, Height = (InnerR - 6) * 2,
-            Fill = new SolidColorBrush(Color.FromArgb(0xE6, 0x2B, 0x2B, 0x2B)),
+            Width = (InnerR - 6) * 2,
+            Height = (InnerR - 6) * 2,
+            Fill = new LinearGradientBrush(
+                Color.FromArgb(0x80, 0x20, 0x26, 0x34), Color.FromArgb(0x50, 0x10, 0x14, 0x1E),
+                new Point(0, 0), new Point(1, 1)),
+            Stroke = EdgeBrush,
+            StrokeThickness = 1.2,
             IsHitTestVisible = false
         };
         Canvas.SetLeft(center, Cx - (InnerR - 6));
@@ -111,12 +143,18 @@ public partial class OverlayWindow : Window
 
         var hint = new TextBlock
         {
-            Text = "DROP", Width = 60, TextAlignment = TextAlignment.Center,
-            Foreground = Brushes.White, FontSize = 11, FontWeight = FontWeights.SemiBold,
-            IsHitTestVisible = false
+            Text = "DROP",
+            Width = 50,
+            TextAlignment = TextAlignment.Center,
+            FontFamily = UiFont,
+            Foreground = Brushes.White,
+            FontSize = 9,
+            FontWeight = FontWeights.SemiBold,
+            IsHitTestVisible = false,
+            Effect = new DropShadowEffect { BlurRadius = 4, ShadowDepth = 1, Opacity = 0.6, Color = Colors.Black }
         };
-        Canvas.SetLeft(hint, Cx - 30);
-        Canvas.SetTop(hint, Cy - 8);
+        Canvas.SetLeft(hint, Cx - 25);
+        Canvas.SetTop(hint, Cy - 6);
         MenuCanvas.Children.Add(hint);
     }
 
